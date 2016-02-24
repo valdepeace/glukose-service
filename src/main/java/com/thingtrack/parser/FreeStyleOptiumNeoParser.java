@@ -17,6 +17,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.TimeZone;
 
+import org.apache.log4j.Logger;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
@@ -27,9 +28,12 @@ import org.usb4java.DeviceHandle;
 import org.usb4java.LibUsb;
 import org.usb4java.LibUsbException;
 
+import com.thingtrack.App;
 import com.thingtrack.protocol.FreestyleOptiumNeoProtocols;
 
 public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
+	private final static Logger logger = Logger.getLogger(FreeStyleOptiumNeoParser.class);
+	
 	/** The USB communication timeout. */
     private static final int TIMEOUT = 1000;
         
@@ -41,9 +45,6 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
     
     /** Default read size of the FreeStyle Optium Neo */
     private static final int SIZE = 64;
-    
-    /** Wait milliseconds from send command to receive response */
-    private static final int WAIT = 1000;
 
     /** Measure class */
     public class Measure {
@@ -137,13 +138,16 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
         String data = null;
         
     	System.out.println("send " + commandCode + " command");
+    	logger.info("send " + commandCode + " command");
+    	
         sendCommand(handle, commandPayload);
-        Thread.sleep(WAIT);
+        Thread.sleep(App.wait);
         try {		                
             while(true) {
                 buffer = read(handle, size);	  
                 data = StandardCharsets.US_ASCII.decode(buffer).toString();
                 System.out.println("Data " + commandCode + ":" + data);
+                logger.info("Data " + commandCode + ":" + data);
                 
                 // if the control transfer result is multi
                 if (multi)
@@ -165,24 +169,18 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
     private void parseDate(Object data) throws ParseException {
     	String[] lines = ((String) data).split("\n");
     	
-    	//SimpleDateFormat formatter = new SimpleDateFormat("MM-dd-yy");
-    	
     	String str = (lines[0]).substring(2, lines[0].length()-1);
     	String[] tokens = str.split(",");
     	
-    	//values.put("date", formatter.parse(tokens[0] + "-" + tokens[1] + "-" + tokens[2]));    	
     	values.put("date", tokens[0] + "-" + tokens[1] + "-" + tokens[2]);
     }
 
     private void parseTime(Object data) throws ParseException {
     	String[] lines = ((String) data).split("\n");
     	
-    	//SimpleDateFormat formatter = new SimpleDateFormat("HH:mm");
-    	
     	String str = (lines[0]).substring(2, lines[0].length()-1);    	
     	String[] tokens = str.split(",");
     	
-    	//values.put("time", formatter.parse(tokens[0] + ":" + tokens[1]));
     	values.put("time", tokens[0] + ":" + tokens[1]);
     }
     
@@ -229,7 +227,7 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
     		}
     	}
     	
-		values.put("result", measures);
+		values.put("measures", measures);
     }
     
     @Override
@@ -241,6 +239,7 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
         result = LibUsb.open(device, handle);
         
         if (result != LibUsb.SUCCESS) {
+        	logger.error("LibUsbException", new LibUsbException("Unable to open USB device", result));
             throw new LibUsbException("Unable to open USB device", result);
         }
         	   
@@ -249,8 +248,8 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
             // Check if kernel driver is attached to the interface
             attached = LibUsb.kernelDriverActive(handle, DEF_INTERFACE);
             if (attached < 0) {
-                throw new LibUsbException(
-                    "Unable to check kernel driver active", result);
+            	logger.error("LibUsbException", new LibUsbException("Unable to check kernel driver active", result));
+                throw new LibUsbException("Unable to check kernel driver active", result);
             }
 
             // Detach kernel driver from interface 0. This can fail if
@@ -260,13 +259,14 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
             if (result != LibUsb.SUCCESS &&
                 result != LibUsb.ERROR_NOT_SUPPORTED &&
                 result != LibUsb.ERROR_NOT_FOUND) {
-                throw new LibUsbException("Unable to detach kernel driver",
-                    result);
+            	logger.error("LibUsbException", new LibUsbException("Unable to detach kernel driver", result));
+                throw new LibUsbException("Unable to detach kernel driver", result);
             }
             
             // Claim interface
             result = LibUsb.claimInterface(handle, DEF_INTERFACE);
             if (result != LibUsb.SUCCESS) {
+            	logger.error("LibUsbException", new LibUsbException("Unable to claim interface", result));
                 throw new LibUsbException("Unable to claim interface", result);
             }	                
 
@@ -275,10 +275,12 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
             
             // sleep 5 seconds
             System.out.println("Wait 5 second ...");
+            logger.info("Wait 5 second ...");
             Thread.sleep(5000);
             
             System.out.println("Init commands");
-        		                
+            logger.info("Init commands");
+            
             // send com01_init command
             executeCommand(handle, "com01_init", FreestyleOptiumNeoProtocols.com01_init, SIZE, false);	              
             
@@ -298,7 +300,7 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
             parseSerlnum(executeCommand(handle, "com06_serlnum", FreestyleOptiumNeoProtocols.com06_serlnum, SIZE, false));
             
             // send com07_swver command
-            parseSwver(executeCommand(handle, "com07_swver", FreestyleOptiumNeoProtocols.com07_swver, SIZE, false));
+            executeCommand(handle, "com07_swver", FreestyleOptiumNeoProtocols.com07_swver, SIZE, false);
             
             // send com08_date command
             parseDate(executeCommand(handle, "com08_date", FreestyleOptiumNeoProtocols.com08_date, SIZE, false));	              
@@ -317,27 +319,31 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
             
             System.out.println("End commands");
         } catch (InterruptedException e) {
+        	logger.error("InterruptedException", e);
         	System.out.println("InterruptedException: " + e.getMessage());		
 		} catch (ParseException e) {
+			logger.error("ParseException", e);
 			System.out.println("ParseException: " + e.getMessage());
 		} catch (Exception e) {
+			logger.error("Exception", e);
 			System.out.println("Exception: " + e.getMessage());
 		}
         finally {
         	// Release the interface
         	System.out.println("Release interface");
+        	logger.info("Release interface");
             result = LibUsb.releaseInterface(handle, DEF_INTERFACE);
             if (result != LibUsb.SUCCESS) {
-                throw new LibUsbException("Unable to release interface", 
-                    result);
+            	logger.error("LibUsbException", new LibUsbException("Unable to release interface", result));
+                throw new LibUsbException("Unable to release interface", result);
             }
             
             // Re-attach kernel driver if needed
             if (attached == 1) {
                 LibUsb.attachKernelDriver(handle, DEF_INTERFACE);
                 if (result != LibUsb.SUCCESS) {
-                    throw new LibUsbException(
-                        "Unable to re-attach kernel driver", result);
+                	logger.error("LibUsbException", new LibUsbException("Unable to re-attach kernel driver", result));
+                    throw new LibUsbException("Unable to re-attach kernel driver", result);
                 }
             }
         }
@@ -355,6 +361,7 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
 	@Override
 	public void export(String path) {
 		try {
+			logger.info("Generating JSON result");
 			// create the JSON file from hashtable
 			SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd-yy HH:mm");
 			
@@ -364,35 +371,40 @@ public class FreeStyleOptiumNeoParser extends AbstractUsbParser {
 					
 			JSONObject json = new JSONObject();		
 			
-			json.put("swver", values.get("swver").toString());
+			if (values.get("swver") != null)
+				json.put("swver", values.get("swver").toString());
 			json.put("serlnum", values.get("serlnum").toString());
 			json.put("ptname", values.get("ptname").toString());
 			json.put("ptid", values.get("ptid").toString());
 			json.put("date", isoDateFormat.format(dateFormat.parse(values.get("date") + " " + values.get("time"))));
 			
-			JSONArray result = new JSONArray();
-			for(Measure measure : (List<Measure>)values.get("result")) {
+			JSONArray measures = new JSONArray();
+			for(Measure measure : (List<Measure>)values.get("measures")) {
 	    		JSONObject val = new JSONObject();
 	    		
 	    		val.put("date", isoDateFormat.format(measure.getDate()));
-	    		val.put("measure", measure.getValue());
+	    		val.put("value", measure.getValue());
 	    		
-	    		result.add(val);
+	    		measures.add(val);
 	    	}
-			json.put("result", result);		
+			json.put("measures", measures);		
 		
-			// export jSON file
+			// export jSON file			
 			SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");	
 			
-			String fileName = formatter.format(new Date()) + "#" + values.get("serlnum").toString() + ".json";
+			String fileName = App.path + "/" + values.get("serlnum").toString() + "#" + formatter.format(new Date()) + ".json";
+			
+			logger.info("Saving JSON result at " + fileName); 
 			
 			FileWriter jsonFile = new FileWriter(fileName);
 			jsonFile.write(json.toJSONString());
 			jsonFile.flush();
 			jsonFile.close();
 		} catch (IOException e) {
+			logger.error("IOException", e);
 			e.printStackTrace();
-		} catch (ParseException e) {			
+		} catch (ParseException e) {
+			logger.error("ParseException", e);
 			e.printStackTrace();
 		}
 	}      

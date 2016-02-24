@@ -1,8 +1,8 @@
 package com.thingtrack;
 
 import java.io.IOException;
-import java.util.logging.Logger;
 
+import org.apache.log4j.Logger;
 import org.usb4java.Context;
 import org.usb4java.Device;
 import org.usb4java.DeviceDescriptor;
@@ -13,12 +13,24 @@ import org.usb4java.LibUsbException;
 
 import com.thingtrack.parser.FreeStyleOptiumNeoParser;
 
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
+
 public class App {
-	// assumes the current class is called logger
-	private final static Logger LOGGER = Logger.getLogger(App.class.getName()); 
+	// Default Log Path
+	private static final String DEF_PATH = "./";
+	
+    // Default wait milliseconds from send command to receive response
+	private static final int DEF_WAIT = 1000;
+	
+	// assumes the current class is called logger 
+	private final static Logger logger = Logger.getLogger(App.class);
 	
     private static FreeStyleOptiumNeoParser freeStyleOptiumNeoParser = 
     		new FreeStyleOptiumNeoParser((short)0x1a61, (short)0x3850);
+    
+    public static String path;
+    public static Integer wait;
     
 	/**
      * This is the event handling thread. libusb doesn't start threads by its
@@ -57,18 +69,26 @@ public class App {
         public int processEvent(Context context, Device device, int event, Object userData) {
             DeviceDescriptor descriptor = new DeviceDescriptor();
             int result = LibUsb.getDeviceDescriptor(device, descriptor);
-            if (result != LibUsb.SUCCESS)
+            if (result != LibUsb.SUCCESS) {
+            	logger.error("LibUsbException", new LibUsbException("Unable to read device descriptor", result));
                 throw new LibUsbException("Unable to read device descriptor", result);
-                        
+            }                
+                            
             System.out.format("%s: %04x:%04x%n",
                 event == LibUsb.HOTPLUG_EVENT_DEVICE_ARRIVED ? "Connected" : "Disconnected",
                 descriptor.idVendor(), descriptor.idProduct());
+            
+            logger.info(String.format("%s: %04x:%04x%n", event == LibUsb.HOTPLUG_EVENT_DEVICE_ARRIVED ? "Connected" : "Disconnected",
+                        descriptor.idVendor(), descriptor.idProduct()));                        
             
             // execute Free Style Optium Neo Glucometer device
             if (descriptor.idVendor() == freeStyleOptiumNeoParser.getVendorId() &&
             	descriptor.idProduct() == freeStyleOptiumNeoParser.getProductId() &&
             	event == 1) {
+            		// export data from device
             		freeStyleOptiumNeoParser.execute(context, device, event, userData);
+            		
+            		// export json data to file
             		freeStyleOptiumNeoParser.export("");
             }
              
@@ -77,17 +97,35 @@ public class App {
     }
     
     public static void main( String[] args ) throws IOException, InterruptedException {
-    	LOGGER.info("Starting LibUsb ...");
+    	logger.info("Starting LibUsb ...");
+    	
+    	// parse path export argument: -p: export path
+    	OptionParser parser = new OptionParser( "p::w::" );    	
+    	OptionSet options = parser.parse(args);
+    	
+    	if (options.has("p"))  		    	
+    		path = options.valueOf("p").toString();    	
+    	else
+    		path = DEF_PATH;
+    	
+    	if (options.has("w"))  		    	
+    		wait = Integer.parseInt(options.valueOf("w").toString());    	
+    	else
+    		wait = DEF_WAIT;
     	
     	// Initialize the libusb context
         int result = LibUsb.init(null);
         
         if (result != LibUsb.SUCCESS) {
+        	logger.error("LibUsbException", new LibUsbException("Unable to initialize libusb", result));
+        	
             throw new LibUsbException("Unable to initialize libusb", result);
         }
 
         // Check if hotplug is available
         if (!LibUsb.hasCapability(LibUsb.CAP_HAS_HOTPLUG)) {
+        	logger.error("libusb doesn't support hotplug on this system");
+        	
             System.err.println("libusb doesn't support hotplug on this system");
             System.exit(1);
         }
@@ -107,6 +145,7 @@ public class App {
             new Callback(), null, callbackHandle);
         
         if (result != LibUsb.SUCCESS) {
+        	logger.error("LibUsbException", new LibUsbException("Unable to register hotplug callback", result));        	
             throw new LibUsbException("Unable to register hotplug callback", result);
         }
         
@@ -122,6 +161,6 @@ public class App {
         // Deinitialize the libusb context
         LibUsb.exit(null);
         
-        LOGGER.info("Exit LibUsb ...");
+        logger.info("Exit LibUsb ...");
     }
 }
