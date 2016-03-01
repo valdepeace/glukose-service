@@ -26,6 +26,25 @@ An example could be:
 ```
 java -jar glukose.jar -p /opt/glukose/export -w 1500
 ```
+# Result
+The result of the service have a JSON format to be consumed by the app glukose. The file created have the format of:
+[Device Serial Number]#[Created time].json
+
+An example could be LAGV041S04629#20160225234331.json
+```
+{"ptname":"THINGTRACK",
+ "ptid":"masalinas",
+ "measures":[{"value":74.0,"date":"2016-02-23T18:50+0000"},
+             {"value":107.0,"date":"2016-02-04T12:02+0000"},
+             {"value":0.0,"date":"2016-01-31T00:43+0000"},
+             {"value":0.0,"date":"2016-01-31T00:43+0000"},
+             {"value":0.0,"date":"2016-01-31T00:26+0000"},
+             {"value":0.0,"date":"2016-01-31T00:25+0000"},
+             {"value":119.0,"date":"2016-01-30T13:14+0000"},
+             {"value":0.0,"date":"2016-01-30T13:08+0000"}],
+ "date":"2016-02-29T19:38+0000",
+ "serlnum":"LAGV041S04629"}
+```
 
 # Licenses
 The source code is released under Apache 2.0.
