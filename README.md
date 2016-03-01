@@ -11,7 +11,7 @@ The sniffing tool used for reverse engineering the glucometer device protocols i
 - [Usb4Java library] (http://usb4java.org/) version 1.2.0: Library to access USB devices.
 
 # Installation
-- Add the USB rules (60-freestyle-optium-neo.rules) on your Linux Box directory(/etc/udev/rules.d) using the script contributed in the project, you only must change the group user used when you start your node app. 
+- Create a USB rules (60-freestyle-optium-neo.rules) on your Linux Box directory(/etc/udev/rules.d) using this script, you only must change the group name used when you start your node app. 
 ```
 ATTRS{idVendor}=="1a61", ATTRS{idProduct}=="3850", SUBSYSTEMS=="usb", ACTION=="add", MODE="0666", GROUP+="miguel"
 ```
