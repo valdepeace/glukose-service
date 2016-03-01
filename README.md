@@ -27,7 +27,7 @@ An example could be:
 java -jar glukose.jar -p /opt/glukose/export -w 1500
 ```
 # Result
-The result of the service have a JSON format to be consumed by the app glukose. The file created have the format of:
+The result of the service have a JSON format to be consumed by the app glukose. The file created have this name:
 [Device Serial Number]#[Created time].json
 
 An example could be LAGV041S04629#20160225234331.json
