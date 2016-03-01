@@ -17,5 +17,15 @@ ATTRS{idVendor}=="1a61", ATTRS{idProduct}=="3850", SUBSYSTEMS=="usb", ACTION=="a
 ```
 - Refresh udev to reflect changes with the command: sudo udevadm trigger
 
+# Execution
+The service have two parameters:
+- -p: indicate the path where we must export the json result of the service. Default path the same directory where we start the service.
+- -w: the wait time (in milliseconds) between the send a command and receice the result from the device. Default time is 1000 ms
+
+An example could be:
+```
+java -jar glukose.jar -p /opt/glukose/export -w 1500
+```
+
 # Licenses
 The source code is released under Apache 2.0.
